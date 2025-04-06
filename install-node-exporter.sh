@@ -23,22 +23,22 @@ sudo mv node_exporter-1.8.2.linux-amd64/node_exporter /usr/bin/
 sudo chown node_exporter:node_exporter /usr/bin/node_exporter
 
 sudo cat <<EOF | sudo tee /etc/systemd/system/node_exporter.service
-    [Unit]
-    Description=Node Exporter
-    Documentation=https://prometheus.io/docs/guides/node-exporter/
-    Wants=network-online.target
-    After=network-online.target
+[Unit]
+Description=Node Exporter
+Documentation=https://prometheus.io/docs/guides/node-exporter/
+Wants=network-online.target
+After=network-online.target
 
-    [Service]
-    User=node_exporter
-    Group=node_exporter
-    Type=simple
-    Restart=on-failure
-    ExecStart=/usr/bin/node_exporter \
-     --web.listen-address=:9229
+[Service]
+User=node_exporter
+Group=node_exporter
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/node_exporter \\
+ --web.listen-address=:9229
 
-    [Install]
-    WantedBy=multi-user.target
+[Install]
+WantedBy=multi-user.target
 EOF
 
 sudo chmod 664 /etc/systemd/system/node_exporter.service
