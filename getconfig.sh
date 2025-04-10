@@ -100,7 +100,7 @@ opkg update
 
 # 7. Скачиваем файлы zapret в /tmp
 wget -O /tmp/zapret-core.ipk https://raw.githubusercontent.com/AnotherProksY/TelegraphImages/main/zapret-files/zapret-core.ipk
-wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/AnotherProksY/TelegraphImages/main/zapret-files/luciapp-zapret.ipk
+# wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/AnotherProksY/TelegraphImages/main/zapret-files/luciapp-zapret.ipk
 
 # 8. Устанавливаем файлы
 if opkg install /tmp/zapret-core.ipk; then
@@ -110,16 +110,16 @@ else
     exit 1
 fi
 
-if opkg install /tmp/luciapp-zapret.ipk; then
-    echo "LuCI app installed successfully."
-else
-    echo "Failed to install LuCI app."
-    exit 1
-fi
+# if opkg install /tmp/luciapp-zapret.ipk; then
+#     echo "LuCI app installed successfully."
+# else
+#     echo "Failed to install LuCI app."
+#     exit 1
+# fi
 
 # 9. Удаляем файлы zapret из /tmp
 rm /tmp/zapret-core.ipk
-rm /tmp/luciapp-zapret.ipk
+# rm /tmp/luciapp-zapret.ipk
 
 # 10. Добавить скрипт для работы голосового чата в Discord
 cat > /opt/zapret/init.d/openwrt/custom.d/10-script.sh << EOF
