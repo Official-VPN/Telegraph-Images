@@ -122,7 +122,7 @@ rm /tmp/zapret-core.ipk
 rm /tmp/luciapp-zapret.ipk
 
 # 10. Добавить скрипт для работы голосового чата в Discord
-cat > /opt/zapret/init.d/openwrt/custom.d/10-script.sh 10> << EOF
+cat > /opt/zapret/init.d/openwrt/custom.d/10-script.sh << EOF
 # this custom script runs desync of some udp packets to discord subnets
 # idea taken from community. not tested and not optimized by author.
 
