@@ -25,15 +25,11 @@ start () {
     VPN_NOT_WOKRING=\$(sing-box -c /etc/sing-box/config.json tools fetch instagram.com 2>&1 | grep FATAL)
     if [ -z "\${VPN_NOT_WOKRING}" ]
     then
-        # If VPN is working
-        #
-        # LOAD WITHOUT YOUTUBE DOMAINS AND DISCORD
-        DOMAINS=https://raw.githubusercontent.com/Official-VPN/Routers-domains-for-zapret/main/Russia/inside-dnsmasq-nfset.lst
+        # WITHOUT YOUTUBE
+        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains-no-youtube/main/Russia/inside-dnsmasq-nfset.lst
     else
-        # If it's not working
-        #
-        # LOAD YOUTUBE AND DISCORD DOMAINS
-        DOMAINS=https://raw.githubusercontent.com/Official-VPN/Routers-domains/main/Russia/inside-dnsmasq-nfset.lst
+        # WITH YOUTUBE
+        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
     fi
 
     count=0
