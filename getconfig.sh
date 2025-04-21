@@ -28,12 +28,12 @@ start () {
         # If VPN is working
         #
         # LOAD WITHOUT YOUTUBE DOMAINS AND DISCORD
-        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains-no-youtube/main/Russia/inside-dnsmasq-nfset.lst
+        DOMAINS=https://raw.githubusercontent.com/Official-VPN/Routers-domains-for-zapret/main/Russia/inside-dnsmasq-nfset.lst
     else
         # If it's not working
         #
         # LOAD YOUTUBE AND DISCORD DOMAINS
-        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
+        DOMAINS=https://raw.githubusercontent.com/Official-VPN/Routers-domains/main/Russia/inside-dnsmasq-nfset.lst
     fi
 
     count=0
@@ -99,8 +99,8 @@ chmod +x /etc/hotplug.d/iface/40-getvpnconfig
 opkg update 
 
 # 7. Скачиваем файлы zapret в /tmp
-wget -O /tmp/zapret-core.ipk https://raw.githubusercontent.com/AnotherProksY/TelegraphImages/main/zapret-files/zapret-core.ipk
-wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/AnotherProksY/TelegraphImages/main/zapret-files/luciapp-zapret.ipk
+wget -O /tmp/zapret-core.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/zapret-core.ipk
+wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/luciapp-zapret.ipk
 
 # 8. Устанавливаем файлы
 if opkg install /tmp/zapret-core.ipk; then
