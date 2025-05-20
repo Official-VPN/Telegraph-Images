@@ -22,16 +22,7 @@ cat > /etc/init.d/getdomains << EOF
 START=99
 
 start () {
-    VPN_NOT_WOKRING=\$(sing-box -c /etc/sing-box/config.json tools fetch instagram.com 2>&1 | grep FATAL)
-    if [ -z "\${VPN_NOT_WOKRING}" ]
-    then
-        # WITHOUT YOUTUBE
-        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains-no-youtube/main/Russia/inside-dnsmasq-nfset.lst
-    else
-        # WITH YOUTUBE
-        DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
-    fi
-
+    DOMAINS=https://raw.githubusercontent.com/AnotherProksY/allow-domains/main/Russia/inside-dnsmasq-nfset.lst
     count=0
     while true; do
         if curl -m 3 github.com; then
@@ -92,30 +83,30 @@ cp /etc/hotplug.d/iface/40-getvpnconfig /etc/hotplug.d/net/
 chmod +x /etc/hotplug.d/iface/40-getvpnconfig
 
 # 6. Обновление пакетов openwrt 
-opkg update 
+# opkg update 
 
 # 7. Скачиваем файлы zapret в /tmp
-wget -O /tmp/zapret-core.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/zapret-core.ipk
-wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/luciapp-zapret.ipk
+# wget -O /tmp/zapret-core.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/zapret-core.ipk
+# wget -O /tmp/luciapp-zapret.ipk https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/zapret-files/luciapp-zapret.ipk
 
 # 8. Устанавливаем файлы
-if opkg install /tmp/zapret-core.ipk; then
-    echo "Zapret installed successfully."
-else
-    echo "Failed to install Zapret."
-    exit 1
-fi
-
-if opkg install /tmp/luciapp-zapret.ipk; then
-    echo "LuCI app installed successfully."
-else
-    echo "Failed to install LuCI app."
-    exit 1
-fi
+# if opkg install /tmp/zapret-core.ipk; then
+#     echo "Zapret installed successfully."
+# else
+#     echo "Failed to install Zapret."
+#     exit 1
+# fi
+#
+# if opkg install /tmp/luciapp-zapret.ipk; then
+#     echo "LuCI app installed successfully."
+# else
+#     echo "Failed to install LuCI app."
+#     exit 1
+# fi
 
 # 9. Удаляем файлы zapret из /tmp
-rm /tmp/zapret-core.ipk
-rm /tmp/luciapp-zapret.ipk
+# rm /tmp/zapret-core.ipk
+# rm /tmp/luciapp-zapret.ipk
 
 # 10. Удалить старый конфиг (если он есть)
 rm -rf /etc/sing-box/config.json
