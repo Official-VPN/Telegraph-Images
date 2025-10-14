@@ -3,13 +3,13 @@
 WIRELESS_CONFIG="/etc/config/wireless"
 
 
-OPENWRT_VERSION=$(cat /etc/os-release | grep 'OPENWRT_RELEASE=' | cut -d'"' -f2 | cut -d'.' -f1)
+OPENWRT_VERSION=$(cat /etc/os-release | grep 'VERSION_ID=' | cut -d'"' -f2 | cut -d'.' -f1)
 
 
 cp "$WIRELESS_CONFIG" "$WIRELESS_CONFIG.bak" 2>/dev/null
 
 
-if [ "$OPENWRT_VERSION" = "OpenWrt 24" ]; then
+if [ "$OPENWRT_VERSION" = "24" ]; then
     cat > "$WIRELESS_CONFIG" << 'EOF'
 config wifi-device 'radio0'
         option type 'mac80211'
