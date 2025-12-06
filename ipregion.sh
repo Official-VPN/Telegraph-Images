@@ -924,46 +924,31 @@ get_registered_country() {
 
 get_server_country() {
   local ip_version="$1"
-  local response country_code country_name
+  local response country_code
 
-  # Используем Cloudflare как основной источник (быстрый и надежный)
-  response=$(make_request GET "https://speed.cloudflare.com/meta" --ip-version "$ip_version")
-  
-  if [[ -n "$response" && "$response" != *"error"* ]]; then
-    country_code=$(process_json "$response" ".country")
-    if [[ -n "$country_code" && "$country_code" != "null" ]]; then
-      echo "$country_code"
-      return
-    fi
+  # 1. ipapi.co — самый стабильный и не ебет мозг
+  response=$(make_request GET "https://ipapi.co/json" --ip-version "$ip_version")
+  country_code=$(process_json "$response" ".country_code")
+
+  if [[ -n "$country_code" && "$country_code" != "null" ]]; then
+    echo "$country_code"
+    return
   fi
 
-  # Если Cloudflare не сработал, пробуем MaxMind
+  # 2. MaxMind — fallback
   response=$(make_request GET "https://geoip.maxmind.com/geoip/v2.1/city/me" \
     --header "Referer: https://www.maxmind.com" \
     --ip-version "$ip_version")
-  
-  if [[ -n "$response" && "$response" != *"error"* ]]; then
-    country_code=$(process_json "$response" ".country.iso_code")
-    if [[ -n "$country_code" && "$country_code" != "null" ]]; then
-      echo "$country_code"
-      return
-    fi
+  country_code=$(process_json "$response" ".country.iso_code")
+
+  if [[ -n "$country_code" && "$country_code" != "null" ]]; then
+    echo "$country_code"
+    return
   fi
 
-  # Если и MaxMind не сработал, пробуем IPAPI.co
-  response=$(make_request GET "https://ipapi.co/json" --ip-version "$ip_version")
-  
-  if [[ -n "$response" && "$response" != *"error"* ]]; then
-    country_code=$(process_json "$response" ".country_code")
-    if [[ -n "$country_code" && "$country_code" != "null" ]]; then
-      echo "$country_code"
-      return
-    fi
-  fi
-
-  # Если ничего не сработало
   echo "Unknown"
 }
+
 
 get_iata_location() {
   local iata_code="$1"
@@ -1997,7 +1982,7 @@ main() {
 
   discover_external_ips
   get_asn
-  
+
   # Определяем страну сервера
   if [[ -n "$EXTERNAL_IPV4" ]]; then
     SERVER_COUNTRY=$(get_server_country 4)
@@ -2006,7 +1991,7 @@ main() {
   else
     SERVER_COUNTRY="Unknown"
   fi
-  
+
   log "$LOG_INFO" "Server country detected: $SERVER_COUNTRY"
 
   case "$GROUPS_TO_SHOW" in
