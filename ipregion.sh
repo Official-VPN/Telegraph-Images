@@ -86,6 +86,7 @@ declare -A PRIMARY_SERVICES=(
   [IPQUERY_IO]="ipquery.io|api.ipquery.io|/{ip}"
   [IPWHO_IS]="ipwho.is|ipwho.is|/{ip}"
   [IPAPI_COM]="ip-api.com|demo.ip-api.com|/json/{ip}?fields=countryCode"
+  [SCAMALYTICS]="scamalytics.com|api12.scamalytics.com|/v3/sashasafonov080/?key=b8e893e3b25169850525bee236c2d6d4d347cc110d8479b73ab91812f7106f44&ip={ip}"
 )
 
 PRIMARY_SERVICES_ORDER=(
@@ -105,10 +106,12 @@ PRIMARY_SERVICES_ORDER=(
   "IPQUERY_IO"
   "IPWHO_IS"
   "IPAPI_COM"
+  "SCAMALYTICS"
 )
 
 declare -A PRIMARY_SERVICES_CUSTOM_HANDLERS=(
   [IPLOCATION_COM]="lookup_iplocation_com"
+  [SCAMALYTICS]="lookup_scamalytics"
 )
 
 declare -A SERVICE_HEADERS=(
@@ -1258,6 +1261,9 @@ process_response() {
     IPAPI_COM)
       jq_filter='.countryCode'
       ;;
+    SCAMALYTICS)
+      jq_filter='.scamalytics.scamalytics_risk'
+      ;;
     *)
       echo "$response"
       ;;
@@ -1647,6 +1653,46 @@ lookup_iplocation_com() {
 
   response=$(make_request POST "https://iplocation.com" --ip-version "$ip_version" --user-agent "$USER_AGENT" --data "ip=$ip")
   process_json "$response" ".country_code"
+}
+
+lookup_scamalytics() {
+  local ip_version="$1"
+  local ip response risk score bl dc vpn aws google icloud summary
+
+  if [[ -n "$EXTERNAL_IPV4" ]]; then
+    ip="$EXTERNAL_IPV4"
+  else
+    ip="$EXTERNAL_IPV6"
+  fi
+
+  response=$(make_request GET "https://api12.scamalytics.com/v3/sashasafonov080/?key=b8e893e3b25169850525bee236c2d6d4d347cc110d8479b73ab91812f7106f44&ip=$ip" \
+    --ip-version "$ip_version")
+
+  if is_status_string "$response"; then
+    echo "$response"
+    return
+  fi
+
+  if ! is_valid_json "$response"; then
+    echo "$STATUS_NA"
+    return
+  fi
+
+  risk=$(process_json "$response" ".scamalytics.scamalytics_risk")
+  score=$(process_json "$response" ".scamalytics.scamalytics_score")
+  bl=$(process_json "$response" ".scamalytics.is_blacklisted_external")
+  dc=$(process_json "$response" ".scamalytics.scamalytics_proxy.is_datacenter")
+  vpn=$(process_json "$response" ".scamalytics.scamalytics_proxy.is_vpn")
+  aws=$(process_json "$response" ".scamalytics.scamalytics_proxy.is_amazon_aws")
+  google=$(process_json "$response" ".scamalytics.scamalytics_proxy.is_google")
+  icloud=$(process_json "$response" ".scamalytics.scamalytics_proxy.is_apple_icloud_private_relay")
+
+  summary=$(printf "risk=%s score=%s bl=%s dc=%s vpn=%s aws=%s google=%s icloud=%s" \
+    "${risk:-$STATUS_NA}" "${score:-$STATUS_NA}" "${bl:-$STATUS_NA}" \
+    "${dc:-$STATUS_NA}" "${vpn:-$STATUS_NA}" "${aws:-$STATUS_NA}" \
+    "${google:-$STATUS_NA}" "${icloud:-$STATUS_NA}")
+
+  echo "$summary"
 }
 
 lookup_google() {
