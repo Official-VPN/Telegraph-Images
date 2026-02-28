@@ -130,7 +130,7 @@ add_firewall_rule 'VoIP' "config rule
 	option dest_port '5060 5061'"
 
 add_firewall_rule 'Cloudflare' "config rule
-	option name 'Telegram VPN'
+	option name 'Cloudflare'
 	option src 'lan'
 	option dest '*'
 	option proto 'all'
