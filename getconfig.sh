@@ -23,6 +23,25 @@ ntpd -n -q -p 0.pool.ntp.org -p 1.pool.ntp.org -p 2.pool.ntp.org
 echo "Current time: $(date)"
 echo ""
 
+echo "Updating sing-box to version 1.11.15-1..."
+SINGBOX_TARGET_VERSION="1.11.15-1"
+SINGBOX_CURRENT_VERSION=$(opkg list-installed sing-box 2>/dev/null | awk '{print $3}')
+if [ "$SINGBOX_CURRENT_VERSION" = "$SINGBOX_TARGET_VERSION" ]; then
+    echo "sing-box already at $SINGBOX_TARGET_VERSION, skipping."
+else
+    echo "Current: ${SINGBOX_CURRENT_VERSION:-not installed}. Upgrading..."
+    opkg update && opkg upgrade sing-box
+fi
+echo ""
+echo "Configuring sing-box service (user=root)..."
+uci set sing-box.main.enabled='1'
+uci set sing-box.main.user='root'
+uci set sing-box.main.conffile='/etc/sing-box/config.json'
+uci set sing-box.main.workdir='/usr/share/sing-box'
+uci commit sing-box
+echo "sing-box service config applied."
+echo ""
+
 cat > /etc/init.d/getdomains << EOF
 #!/bin/sh /etc/rc.common
 
@@ -63,6 +82,7 @@ request_vpn_config() {
     REQUEST_URI="https://getconfig.tgvpnbot.com/getrouterconfig?routermac=\$ROUTER_MAC"
 
     curl \$REQUEST_URI > \$SINGBOX_CONFIG_PATH
+    sed -i 's/"inet4_address": "\([^"]*\)"/"address": ["\1"]/g' \$SINGBOX_CONFIG_PATH
 
     service sing-box restart
 }
@@ -84,6 +104,23 @@ EOF
 cp /etc/hotplug.d/iface/40-getvpnconfig /etc/hotplug.d/net/
 
 chmod +x /etc/hotplug.d/iface/40-getvpnconfig
+
+cat > /etc/hotplug.d/net/30-vpnroute << 'VPNEOF'
+#!/bin/sh
+
+sleep 10
+ip route add table vpn default dev tun0
+VPNEOF
+
+cat > /etc/hotplug.d/iface/30-vpnroute << 'VPNEOF'
+#!/bin/sh
+
+sleep 10
+ip route add table vpn default dev tun0
+VPNEOF
+
+chmod +x /etc/hotplug.d/net/30-vpnroute
+chmod +x /etc/hotplug.d/iface/30-vpnroute
 
 FIREWALL_CONF='/etc/config/firewall'
 
@@ -117,7 +154,7 @@ add_firewall_rule 'Telegram VPN' "config rule
 	option set_mark '0x1'
 	option target 'MARK'
 	option family 'ipv4'
-	option dest_ip '91.108.8.0/22 91.108.16.0/22 91.108.12.0/22 149.154.160.0/20 91.105.192.0/23 91.108.20.0/22 185.76.151.0/24'"
+	option dest_ip '91.108.8.0/22 91.108.16.0/22 91.108.12.0/22 149.154.160.0/20 91.105.192.0/23 91.108.20.0/22 185.76.151.0/24 5.28.192.0/18'"
 
 add_firewall_rule 'VoIP' "config rule
 	option name 'VoIP'
@@ -159,7 +196,52 @@ add_firewall_rule 'Discord-Voice' "config rule
 	option family 'ipv4'
 	option dest_ip '66.22.243.0/24 64.233.165.94 35.207.188.57 35.207.81.249 35.207.171.222 195.62.89.0/24 66.22.192.0/18 66.22.196.0/24 66.22.197.0/24 66.22.198.0/24 66.22.199.0/24 66.22.216.0/24 66.22.217.0/24 66.22.237.0/24 66.22.238.0/24 66.22.241.0/24 66.22.242.0/24 66.22.244.0/24 64.71.8.96/29 34.0.240.0/24 34.0.241.0/24 34.0.242.0/24 34.0.243.0/24 34.0.244.0/24 34.0.245.0/24 34.0.246.0/24 34.0.247.0/24 34.0.248.0/24 34.0.249.0/24 34.0.250.0/24 34.0.251.0/24 12.129.184.160/29 138.128.136.0/21 162.158.0.0/15 172.64.0.0/13 34.0.0.0/15 34.2.0.0/15 35.192.0.0/12 35.208.0.0/12 5.200.14.128/25'"
 
+add_firewall_rule 'singbox' "config zone
+	option name 'singbox'
+	option device 'tun0'
+	option forward 'ACCEPT'
+	option output 'ACCEPT'
+	option input 'ACCEPT'
+	option masq '1'
+	option mtu_fix '1'
+	option family 'ipv4'"
+
+add_firewall_rule 'singbox-lan' "config forwarding
+	option name 'singbox-lan'
+	option dest 'singbox'
+	option src 'lan'
+	option family 'ipv4'"
+
+add_firewall_rule 'vpn_domains' "config ipset
+	option name 'vpn_domains'
+	option match 'dst_net'"
+
+add_firewall_rule 'mark_domains' "config rule
+	option name 'mark_domains'
+	option src 'lan'
+	option dest '*'
+	option proto 'all'
+	option ipset 'vpn_domains'
+	option set_mark '0x1'
+	option target 'MARK'
+	option family 'ipv4'"
+
 /etc/init.d/firewall restart
+
+NETWORK_CONF='/etc/config/network'
+if ! grep -q "option name 'mark0x1'" "$NETWORK_CONF"; then
+    printf "\nconfig rule\n\toption name 'mark0x1'\n\toption mark '0x1'\n\toption priority '100'\n\toption lookup 'vpn'\n" >> "$NETWORK_CONF"
+    echo "Network rule 'mark0x1' added."
+else
+    echo "Network rule 'mark0x1' already exists, skipping."
+fi
+
+if ! grep -q "^99 vpn" /etc/iproute2/rt_tables; then
+    echo "99 vpn" >> /etc/iproute2/rt_tables
+    echo "VPN routing table entry added."
+else
+    echo "VPN routing table entry already exists, skipping."
+fi
 
 rm -f /etc/sing-box/config.json
 
