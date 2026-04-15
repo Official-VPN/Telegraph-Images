@@ -26,11 +26,45 @@ echo ""
 echo "Updating sing-box to version 1.11.15-1..."
 SINGBOX_TARGET_VERSION="1.11.15-1"
 SINGBOX_CURRENT_VERSION=$(opkg list-installed sing-box 2>/dev/null | awk '{print $3}')
+
 if [ "$SINGBOX_CURRENT_VERSION" = "$SINGBOX_TARGET_VERSION" ]; then
     echo "sing-box already at $SINGBOX_TARGET_VERSION, skipping."
 else
     echo "Current: ${SINGBOX_CURRENT_VERSION:-not installed}. Upgrading..."
-    opkg update && opkg upgrade sing-box
+
+    SINGBOX_UPGRADED=0
+
+    # Primary method: opkg
+    if opkg update && opkg upgrade sing-box; then
+        SINGBOX_UPGRADED=1
+        echo "sing-box upgraded via opkg."
+    else
+        echo "opkg failed. Trying direct ipk download..."
+    fi
+
+    # Fallback: direct ipk download
+    if [ "$SINGBOX_UPGRADED" = "0" ]; then
+        OPENWRT_ARCH=$(opkg print-architecture | grep -v ' all' | grep -v ' noarch' | awk 'NR==1{print $2}')
+        OPENWRT_RELEASE=$(grep DISTRIB_RELEASE /etc/openwrt_release 2>/dev/null | cut -d"'" -f2)
+        if echo "$OPENWRT_RELEASE" | grep -qi "snapshot"; then
+            SINGBOX_IPK_URL="https://downloads.openwrt.org/snapshots/packages/${OPENWRT_ARCH}/packages/sing-box_${SINGBOX_TARGET_VERSION}_${OPENWRT_ARCH}.ipk"
+        else
+            SINGBOX_IPK_URL="https://downloads.openwrt.org/releases/${OPENWRT_RELEASE}/packages/${OPENWRT_ARCH}/packages/sing-box_${SINGBOX_TARGET_VERSION}_${OPENWRT_ARCH}.ipk"
+        fi
+        SINGBOX_IPK_TMP="/tmp/sing-box_${SINGBOX_TARGET_VERSION}.ipk"
+
+        echo "Detected arch: ${OPENWRT_ARCH}, release: ${OPENWRT_RELEASE}"
+        echo "Downloading: ${SINGBOX_IPK_URL}"
+
+        if wget -O "$SINGBOX_IPK_TMP" "$SINGBOX_IPK_URL"; then
+            opkg install --force-reinstall "$SINGBOX_IPK_TMP"
+            rm -f "$SINGBOX_IPK_TMP"
+            SINGBOX_UPGRADED=1
+            echo "sing-box installed from direct ipk."
+        else
+            echo "ERROR: Failed to download sing-box ipk. Manual installation may be required."
+        fi
+    fi
 fi
 echo ""
 echo "Configuring sing-box service (user=root)..."
