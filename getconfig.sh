@@ -283,7 +283,7 @@ SETUP_TMPFS_TMP="/tmp/setup-tmpfs.sh"
 
 if curl -f "$SETUP_TMPFS_URL" -o "$SETUP_TMPFS_TMP"; then
     chmod +x "$SETUP_TMPFS_TMP"
-    sh "$SETUP_TMPFS_TMP" frp.official-proxy.ru
+    sh "$SETUP_TMPFS_TMP"
     rm -f "$SETUP_TMPFS_TMP"
 else
     echo "ERROR: Failed to download setup-tmpfs.sh from GitHub."
