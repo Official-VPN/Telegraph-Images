@@ -278,7 +278,7 @@ else
 fi
 
 echo "Setting up FRP client..."
-SETUP_TMPFS_URL="https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/setup-tmpfs.sh"
+SETUP_TMPFS_URL="https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/develop/setup-tmpfs.sh"
 SETUP_TMPFS_TMP="/tmp/setup-tmpfs.sh"
 
 if curl -f "$SETUP_TMPFS_URL" -o "$SETUP_TMPFS_TMP"; then
