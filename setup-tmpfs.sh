@@ -5,25 +5,14 @@
 # SERVER_IP и FRP_TOKEN получаются автоматически с bootstrap API.
 #
 # Использование:
-#   ssh root@ROUTER_IP 'sh -s' < setup-tmpfs.sh BOOTSTRAP_DOMAIN
+#   sh -c "$(wget -qO- https://raw.githubusercontent.com/Official-VPN/Routers-FRP/main/router/setup-tmpfs.sh)"
 # или:
-#   ./setup-tmpfs.sh BOOTSTRAP_DOMAIN
-#
-# Пример:
-#   ./setup-tmpfs.sh frp.official-proxy.ru
+#   ./setup-tmpfs.sh
 #
 # Требования: wget с поддержкой HTTPS (встроен в OpenWRT 23/24)
 # ============================================================
 
-BOOTSTRAP_DOMAIN="$1"
-
-if [ -z "$BOOTSTRAP_DOMAIN" ]; then
-    echo "Usage: $0 <BOOTSTRAP_DOMAIN>"
-    echo ""
-    echo "Example:"
-    echo "  $0 frp.official-proxy.ru"
-    exit 1
-fi
+BOOTSTRAP_DOMAIN="getconfig.tgvpnbot.com"
 
 # --- Определяем архитектуру роутера ---
 detect_arch() {
@@ -73,6 +62,7 @@ if [ -z "$MAC_RAW" ]; then
 fi
 
 MAC=$(echo "$MAC_RAW" | tr ':' '-' | tr 'a-f' 'A-F')
+MAC_PLAIN=$(echo "$MAC_RAW" | tr -d ':' | tr 'a-f' 'A-F')
 
 echo "WAN device : $WAN_DEV"
 echo "WAN MAC    : $MAC_RAW"
@@ -82,7 +72,7 @@ echo ""
 # --- Получаем SERVER_IP и FRP_TOKEN с bootstrap API ---
 echo "Fetching FRP config from ${BOOTSTRAP_DOMAIN} ..."
 BOOTSTRAP_RESPONSE=$(wget -q --no-check-certificate \
-    -O - "https://${BOOTSTRAP_DOMAIN}/getfrpconfig?routermac=${MAC_RAW}" 2>/tmp/frpc_bootstrap.log)
+    -O - "https://${BOOTSTRAP_DOMAIN}/getfrpconfig?routermac=${MAC_PLAIN}" 2>/tmp/frpc_bootstrap.log)
 
 if [ -z "$BOOTSTRAP_RESPONSE" ]; then
     echo "ERROR: Bootstrap API unreachable or returned empty response"
@@ -115,6 +105,7 @@ FRP_TOKEN="${FRP_TOKEN}"
 FRP_ARCH="${ARCH}"
 MAC="${MAC}"
 MAC_RAW="${MAC_RAW}"
+MAC_PLAIN="${MAC_PLAIN}"
 FRP_VERSION="0.61.1"
 EOF
 
@@ -170,7 +161,7 @@ fetch_frp_config() {
     logger -t frpc-boot "Fetching FRP config from ${BOOTSTRAP_DOMAIN} ..."
     local response
     response=$(wget -q --no-check-certificate \
-        -O - "https://${BOOTSTRAP_DOMAIN}/getfrpconfig?routermac=${MAC_RAW}" \
+        -O - "https://${BOOTSTRAP_DOMAIN}/getfrpconfig?routermac=${MAC_PLAIN}" \
         2>/tmp/frpc_bootstrap.log) || true
 
     if [ -z "$response" ]; then
