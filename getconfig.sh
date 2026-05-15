@@ -57,10 +57,22 @@ else
         echo "Downloading: ${SINGBOX_IPK_URL}"
 
         if wget -O "$SINGBOX_IPK_TMP" "$SINGBOX_IPK_URL"; then
-            opkg install --force-reinstall "$SINGBOX_IPK_TMP"
-            rm -f "$SINGBOX_IPK_TMP"
-            SINGBOX_UPGRADED=1
-            echo "sing-box installed from direct ipk."
+            if opkg install --force-reinstall "$SINGBOX_IPK_TMP"; then
+                echo "sing-box installed from direct ipk."
+                rm -f "$SINGBOX_IPK_TMP"
+                SINGBOX_UPGRADED=1
+            else
+                echo "opkg install failed (dependency issue?). Extracting binary manually..."
+                tar -xzf "$SINGBOX_IPK_TMP" -C /tmp
+                tar -xzf /tmp/data.tar.gz -C /tmp
+                if cp /tmp/usr/bin/sing-box /usr/bin/sing-box && chmod +x /usr/bin/sing-box; then
+                    SINGBOX_UPGRADED=1
+                    echo "sing-box installed successfully from manual binary extraction."
+                else
+                    echo "ERROR: Failed to copy sing-box binary."
+                fi
+                rm -rf /tmp/usr /tmp/data.tar.gz /tmp/debian-binary "$SINGBOX_IPK_TMP"
+            fi
         else
             echo "ERROR: Failed to download sing-box ipk. Manual installation may be required."
         fi
