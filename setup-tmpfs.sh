@@ -5,7 +5,7 @@
 # SERVER_IP и FRP_TOKEN получаются автоматически с bootstrap API.
 #
 # Использование:
-#   sh -c "$(wget -qO- https://raw.githubusercontent.com/Official-VPN/Routers-FRP/main/router/setup-tmpfs.sh)"
+#   sh -c "$(wget -qO- https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/develop/setup-tmpfs.sh)"
 # или:
 #   ./setup-tmpfs.sh
 #
@@ -137,6 +137,20 @@ FRPC_CONF="/tmp/frpc.toml"
 FRPC_LOG="/tmp/frpc.log"
 
 DOWNLOAD_BASE="https://github.com/fatedier/frp/releases/download"
+# Зеркало frpc в репозитории: у части провайдеров release-assets.githubusercontent.com
+# недоступен, а raw.githubusercontent.com отдаётся
+MIRROR_BASE="https://raw.githubusercontent.com/Official-VPN/Telegraph-Images/main/frp"
+
+RETRY_FLAG="/tmp/frpc-boot.retry"
+RETRY_DELAY=60
+
+# sha256 бинарника frpc (одинаковый для зеркала и GitHub). Пусто — на зеркале нет.
+frpc_sha256() {
+    case "$1-$2" in
+        0.61.1-arm64)  echo "252587be8d586ee6c9ad6349d5046898fa89b6642497deec6d6e138494bdc902" ;;
+        0.61.1-mipsle) echo "a76b9ade4d52b2de434755506a3a33e119e2456b1371747c59938c67eb9c0753" ;;
+    esac
+}
 
 load_config() {
     if [ ! -f "$CONF" ]; then
@@ -187,35 +201,79 @@ fetch_frp_config() {
     fi
 }
 
+# Без -q: иначе uclient-fetch не пишет причину ошибки
+fetch() {
+    wget --no-check-certificate -T 30 -O "$2" "$1" >/tmp/frpc_wget.log 2>&1
+}
+
+wget_error() {
+    tr '\r' '\n' </tmp/frpc_wget.log | grep -v '^ *$' | tail -n 1
+}
+
+verify_frpc() {
+    [ -s "$1" ] || return 1
+    if [ -z "$2" ]; then
+        logger -t frpc-boot "WARNING: no sha256 for frpc ${FRP_VERSION} (${FRP_ARCH}), skipping check"
+        return 0
+    fi
+    [ "$(sha256sum "$1" | cut -d' ' -f1)" = "$2" ] && return 0
+    logger -t frpc-boot "ERROR: frpc sha256 mismatch"
+    return 1
+}
+
 download_frpc() {
     local version="${FRP_VERSION:-0.61.1}"
     local arch="${FRP_ARCH}"
-    local url="${DOWNLOAD_BASE}/v${version}/frp_${version}_linux_${arch}.tar.gz"
+    local sum
+    local tmp_bin="/tmp/frpc.download"
+    local tmp_gz="/tmp/frpc_download.gz"
     local tmp_tar="/tmp/frp_download.tar.gz"
 
-    logger -t frpc-boot "Downloading frpc ${version} (${arch}) ..."
+    sum=$(frpc_sha256 "$version" "$arch")
+    rm -f "$tmp_bin"
 
-    if wget -q --no-check-certificate -O "$tmp_tar" "$url" 2>/tmp/frpc_wget.log; then
-        local tmp_dir="/tmp/frp_extract"
-        rm -rf "$tmp_dir"
-        mkdir -p "$tmp_dir"
-        if tar -xzf "$tmp_tar" -C "$tmp_dir" 2>/tmp/frpc_wget.log; then
-            mv "$tmp_dir"/frp_*/frpc "$FRPC_BIN" 2>/dev/null \
-            || mv "$tmp_dir"/frpc "$FRPC_BIN" 2>/dev/null
-            chmod +x "$FRPC_BIN"
-            rm -rf "$tmp_dir" "$tmp_tar"
-            logger -t frpc-boot "frpc downloaded OK"
-            return 0
+    # 1. Зеркало: только frpc, сжатый gzip
+    if [ -n "$sum" ]; then
+        logger -t frpc-boot "Downloading frpc ${version} (${arch}) from mirror ..."
+        if fetch "${MIRROR_BASE}/${version}/frpc_linux_${arch}.gz" "$tmp_gz"; then
+            gunzip -c "$tmp_gz" > "$tmp_bin" 2>/dev/null || rm -f "$tmp_bin"
         else
-            logger -t frpc-boot "ERROR: tar failed"
-            rm -rf "$tmp_dir" "$tmp_tar"
-            return 1
+            logger -t frpc-boot "Mirror download failed: $(wget_error)"
         fi
-    else
-        logger -t frpc-boot "ERROR: wget failed — $(cat /tmp/frpc_wget.log)"
+        rm -f "$tmp_gz"
+        verify_frpc "$tmp_bin" "$sum" || rm -f "$tmp_bin"
+    fi
+
+    # 2. GitHub Releases: из архива достаём только frpc
+    if [ ! -s "$tmp_bin" ]; then
+        logger -t frpc-boot "Downloading frpc ${version} (${arch}) from GitHub ..."
+        if fetch "${DOWNLOAD_BASE}/v${version}/frp_${version}_linux_${arch}.tar.gz" "$tmp_tar"; then
+            tar -xzOf "$tmp_tar" "frp_${version}_linux_${arch}/frpc" > "$tmp_bin" 2>/dev/null \
+                || rm -f "$tmp_bin"
+        else
+            logger -t frpc-boot "GitHub download failed: $(wget_error)"
+        fi
         rm -f "$tmp_tar"
+        verify_frpc "$tmp_bin" "$sum" || rm -f "$tmp_bin"
+    fi
+
+    if [ ! -s "$tmp_bin" ]; then
+        rm -f "$tmp_bin"
         return 1
     fi
+
+    mv "$tmp_bin" "$FRPC_BIN" && chmod +x "$FRPC_BIN" || return 1
+    logger -t frpc-boot "frpc downloaded OK"
+    return 0
+}
+
+# Повтор в фоне: иначе frpc не появится до следующей перезагрузки
+schedule_retry() {
+    [ -f "$RETRY_FLAG" ] && return 0
+    touch "$RETRY_FLAG"
+    logger -t frpc-boot "Retrying in ${RETRY_DELAY}s"
+    ( sleep "$RETRY_DELAY"; rm -f "$RETRY_FLAG"; /etc/init.d/frpc-boot start ) \
+        </dev/null >/dev/null 2>&1 &
 }
 
 write_config() {
@@ -264,6 +322,7 @@ start_service() {
     if [ ! -x "$FRPC_BIN" ]; then
         download_frpc || {
             logger -t frpc-boot "Cannot start: frpc binary unavailable"
+            schedule_retry
             return 1
         }
     fi
